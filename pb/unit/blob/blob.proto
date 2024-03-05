@@ -1,0 +1,8 @@
+syntax = "proto3";
+option go_package = "github.com/aglide100/ai-test/pb/unit/blob";
+
+package unit;
+
+message Blob {
+    bytes data = 1;
+}

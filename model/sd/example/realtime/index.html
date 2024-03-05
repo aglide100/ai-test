@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
+    <body>
+        <div
+            style="
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                margin-bottom: 5px;
+            "
+        >
+            <div>
+                <input type="text" id="promptA" placeholder="prompt" />
+            </div>
+            <div style="display: flex; flex-direction: column; width: 100%">
+                <div id="imageContainer"></div>
+                <div>
+                    <button id="prevButton">Previous</button>
+                    <button id="nextButton">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script>
+            const apiURL = "https://example.com";
+            const token = "helloWorld!";
+
+            let currentIndex = 0;
+            let images = [];
+            const loadingMessage = document.getElementById("loadingMessage");
+            let imageToString = "";
+            let debounceTimer;
+
+            function handleImageSelect(file, callback) {
+                var blob = dataURItoBlob(file);
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const imageData = e.target.result;
+                    imageToString = imageData.split(",")[1];
+                    callback();
+                };
+                reader.readAsDataURL(blob);
+            }
+
+            function dataURItoBlob(dataURI) {
+                var byteString = atob(dataURI.split(",")[1]);
+
+                var mimeString = dataURI
+                    .split(",")[0]
+                    .split(":")[1]
+                    .split(";")[0];
+
+                var ab = new ArrayBuffer(byteString.length);
+                var ia = new Uint8Array(ab);
+                for (var i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+
+                return new Blob([ab], { type: mimeString });
+            }
+
+            function dataURLtoBlob(dataURL, callback) {
+                const parts = dataURL.split(";base64,");
+                const contentType = parts[0].split(":")[1];
+                const raw = window.atob(parts[1]);
+                const rawLength = raw.length;
+                const uInt8Array = new Uint8Array(rawLength);
+
+                for (let i = 0; i < rawLength; ++i) {
+                    uInt8Array[i] = raw.charCodeAt(i);
+                }
+
+                const reader = new FileReader();
+                reader.addEventListener("loadend", (e) => {
+                    const text = e.srcElement.result;
+                    callback(text);
+                });
+
+                reader.readAsText(
+                    new Blob([uInt8Array], { type: contentType })
+                );
+            }
+
+            function handleInputChange() {
+                clearTimeout(debounceTimer);
+                const inputText = document.getElementById("promptA").value;
+
+                if (inputText.length >= 3) {
+                    debounceTimer = setTimeout(() => {
+                        if (images[currentIndex]) {
+                            handleImageSelect(
+                                images[currentIndex],
+                                function () {
+                                    sendPostRequest();
+                                }
+                            );
+                        } else {
+                            sendPostRequest();
+                        }
+                    }, 500);
+                }
+            }
+
+            document
+                .getElementById("promptA")
+                .addEventListener("input", handleInputChange);
+
+            function sendPostRequest() {
+                const promptA = document.getElementById("promptA").value;
+                let requestData;
+                if (imageToString == "") {
+                    requestData = {
+                        auth: {
+                            token: token,
+                        },
+                        isWait: true,
+                        job: {
+                            promptA: promptA,
+                            mode: "txt2img",
+                        },
+                    };
+
+                    fetch(apiURL + "/v1/job", {
+                        credentials: "include",
+                        method: "POST",
+                        body: JSON.stringify(requestData),
+                        headers: {
+                            "Content-type": "application/json; charset=UTF-8",
+                        },
+                    })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            const decodedString = atob(data.res.binary);
+                            let replaced_str = decodedString.replace(/"/g, "");
+                            images.push(replaced_str);
+                            currentIndex = images.length - 1;
+                            displayImage();
+                        })
+                        .catch((error) => {
+                            console.error("Error:", error);
+                        });
+                } else {
+                    let blobID = "";
+
+                    const requestData = {
+                        token: token,
+                        blob: {
+                            data: imageToString,
+                        },
+                    };
+
+                    fetch(apiURL + "/v1/blob", {
+                        credentials: "include",
+                        method: "POST",
+                        body: JSON.stringify(requestData),
+                        headers: {
+                            "Content-type": "application/json; charset=UTF-8",
+                        },
+                    })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            console.log(data.blobID);
+                            blobID = data.blobID;
+
+                            jobRequestData = {
+                                auth: {
+                                    token: token,
+                                },
+                                isWait: true,
+                                job: {
+                                    promptA: promptA,
+                                    mode: "img2img",
+                                    blobID: blobID,
+                                },
+                            };
+
+                            fetch(apiURL + "/v1/job", {
+                                credentials: "include",
+                                method: "POST",
+                                body: JSON.stringify(jobRequestData),
+                                headers: {
+                                    "Content-type":
+                                        "application/json; charset=UTF-8",
+                                },
+                            })
+                                .then((response) => response.json())
+                                .then((data) => {
+                                    const decodedString = atob(data.res.binary);
+                                    let replaced_str = decodedString.replace(
+                                        /"/g,
+                                        ""
+                                    );
+                                    images.push(replaced_str);
+                                    currentIndex = images.length - 1;
+                                    displayImage();
+                                })
+                                .catch((error) => {
+                                    console.error("Error:", error);
+                                });
+                        })
+                        .catch((error) => {
+                            console.error("Error:", error);
+                        });
+                }
+            }
+
+            function displayImage() {
+                const imgContainer = document.getElementById("imageContainer");
+                imgContainer.innerHTML = "";
+
+                const img = document.createElement("img");
+                img.src = images[currentIndex];
+
+                imgContainer.appendChild(img);
+            }
+
+            document
+                .getElementById("nextButton")
+                .addEventListener("click", function () {
+                    if (currentIndex < images.length - 1) {
+                        currentIndex++;
+                        displayImage();
+                    }
+                });
+
+            document
+                .getElementById("prevButton")
+                .addEventListener("click", function () {
+                    if (currentIndex > 0) {
+                        currentIndex--;
+                        displayImage();
+                    }
+                });
+        </script>
+    </body>
+</html>

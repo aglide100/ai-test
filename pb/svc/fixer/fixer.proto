@@ -1,0 +1,95 @@
+syntax = "proto3";
+option go_package = "github.com/aglide100/ai-test/pb/svc/fixer";
+
+import "pb/unit/job/job.proto";
+import "pb/unit/response/response.proto";
+import "pb/unit/blob/blob.proto";
+import "pb/google/api/annotations.proto";
+
+message MakingNewJobReq {
+    Auth auth = 1;
+    bool isWait = 2;
+    unit.Job job = 3;
+}
+
+message MakingNewJobRes {
+    unit.Response res = 1;
+    string jobId = 2;
+    Error error = 3;
+}
+
+message Auth {
+    string token = 1;
+    string who = 2;
+}
+
+message Error {
+    string msg = 1;
+}
+
+message GetResultReq {
+    Auth auth = 1;
+    string jobId = 2;
+}
+
+message GetResultRes {
+    unit.Response res = 1;
+    Error error = 2;
+}
+
+message CheckClientsReq {}
+
+message CheckClientsRes {
+   repeated string res = 1;
+}
+
+message GetBlobReq {
+    string token = 1;
+    string key = 2;
+}
+
+message GetBlobRes {
+    unit.Blob blob = 1;
+}
+
+message SendBlobReq {
+    string token = 1;
+    unit.Blob blob = 2;
+}
+
+message SendBlobRes {
+    string blobID = 1;
+}
+
+service FixerService {
+    rpc MakingNewJob(MakingNewJobReq) returns (MakingNewJobRes) {
+        option (google.api.http) = {
+            post: "/v1/job"
+            body: "*"
+        };
+    };
+    rpc GetResult(GetResultReq) returns (GetResultRes) {
+        option (google.api.http) = {
+            post: "/v1/result"
+            body: "*"
+        };
+    };
+    rpc GetBlob(GetBlobReq) returns (GetBlobRes) {
+        option (google.api.http) = {
+            get: "/v1/blob/{token}/{key}"
+        };
+    }
+    rpc SendBlob(SendBlobReq) returns (SendBlobRes) {
+        option (google.api.http) = {
+            post: "/v1/blob"
+            body: "*"
+        };
+    }
+    rpc CheckClients(CheckClientsReq) returns (CheckClientsRes) {
+        option (google.api.http) = {
+            get: "/v1/clients"
+        };
+    }
+    
+}
+

@@ -1,0 +1,10 @@
+syntax = "proto3";
+option go_package = "github.com/aglide100/ai-test/pb/unit/response";
+
+package unit;
+
+message Response {
+    bytes binary = 1;
+    string data = 2;
+    string msg = 3;
+}

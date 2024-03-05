@@ -1,0 +1,17 @@
+syntax = "proto3";
+option go_package = "github.com/aglide100/ai-test/pb/unit/job";
+
+package unit;
+
+// import "pb/unit/blob/blob.proto";
+
+message Job {
+    string promptA = 1;
+    string promptB = 2;
+    // additonal, img or something
+    string blobID = 3;
+    // running something
+    string mode = 4;
+    // other options...
+    string arg = 5;
+}

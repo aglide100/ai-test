@@ -1,0 +1,38 @@
+version: "3.7"
+
+services:
+    sd:
+        image: ${IMAGEURL}
+        networks:
+            - traefik-network
+        environment:
+            TOKEN: ${TOKEN}
+            TZ: Asia/Seoul
+        command: "/opt/bin/fixer/main -timeout=1000 --modes=txt2img,img2img"
+        deploy:
+            mode: replicated
+            replicas: 1
+            restart_policy:
+                condition: any
+                delay: 5s
+                max_attempts: 3
+                window: 120s
+            labels:
+                - traefik.enable=true
+                - traefik.docker.network=traefik-network
+
+                - traefik.http.routers.sd.rule=Host(`sd.${Domain1}`)
+                - traefik.http.routers.sd.middlewares=redirect-to-https
+                - traefik.http.routers.sd.entrypoints=web
+                - traefik.http.routers.sd.service=sd
+                - traefik.http.services.sd.loadbalancer.server.port=9090
+
+                - traefik.http.routers.sd--https.rule=Host(`sd.${Domain1}`)
+                - traefik.http.routers.sd--https.tls=true
+                - traefik.http.routers.sd--https.tls.certresolver=myresolver
+                - traefik.http.routers.sd--https.entrypoints=websecure
+                - traefik.http.routers.sd--https.service=sd
+
+networks:
+    traefik-network:
+        external: true

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
+    <body>
+        <div
+            style="
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                margin-bottom: 5px;
+            "
+        >
+            <div>
+                <input
+                    type="radio"
+                    id="txt2txt"
+                    name="mode"
+                    value="txt2img"
+                    checked
+                />
+                <label for="txt2img">TXT to IMG</label>
+                <input type="radio" id="img2img" name="mode" value="img2img" />
+                <label for="img2img">IMG to IMG</label>
+            </div>
+            <div>
+                <input type="text" id="promptA" placeholder="prompt" />
+                <input type="text" id="promptB" placeholder="negative_prompt" />
+                <input
+                    type="file"
+                    id="imageInput"
+                    accept="image/*"
+                    onchange="handleImageSelect()"
+                />
+            </div>
+            <div style="margin-bottom: 20px">
+                <button id="sendButton">Send</button>
+                <div id="loadingMessage" style="display: none">
+                    <img src="loading.gif" alt="loading" />
+                    <span>please, wait...</span>
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; width: 100%">
+                <div id="imageContainer"></div>
+                <div>
+                    <button id="prevButton">Previous</button>
+                    <button id="nextButton">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script>
+            const apiBaseURL = "https://example.com";
+
+            const token = "helloWorld!";
+            const endPoint = "/v1/blob";
+
+            let currentIndex = 0;
+            let images = [];
+            let imageToString = "";
+            const loadingMessage = document.getElementById("loadingMessage");
+
+            function handleImageSelect() {
+                const inputElement = document.getElementById("imageInput");
+                const file = inputElement.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const imageData = e.target.result;
+                        imageToString = imageData.split(",")[1];
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    console.error("can't find image");
+                }
+            }
+
+            async function sendPostRequest() {
+                let apiURL = apiBaseURL;
+
+                loadingMessage.style.display = "block";
+
+                const promptA = document.getElementById("promptA").value;
+                const promptB = document.getElementById("promptB").value;
+
+                const selectedMode = document.querySelector(
+                    'input[name="mode"]:checked'
+                ).value;
+
+                if (
+                    (selectedMode === "img2img" ||
+                        selectedMode === "img2vid") &&
+                    !imageToString
+                ) {
+                    alert("Please select an image for IMG to IMG mode.");
+                    loadingMessage.style.display = "none";
+                    return;
+                }
+
+                let blobID = "";
+
+                if (
+                    imageToString.length != 0 &&
+                    (selectedMode === "img2img" || selectedMode === "img2vid")
+                ) {
+                    const requestData = {
+                        token: token,
+                        blob: {
+                            data: imageToString,
+                        },
+                    };
+
+                    await fetch(apiURL + endPoint, {
+                        credentials: "include",
+                        method: "POST",
+                        body: JSON.stringify(requestData),
+                        headers: {
+                            "Content-type": "application/json; charset=UTF-8",
+                        },
+                    })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            console.log(data.blobID);
+                            blobID = data.blobID;
+                        })
+                        .catch((error) => {
+                            console.error("Error:", error);
+                        });
+                }
+
+                const requestData = {
+                    auth: {
+                        token: token,
+                    },
+                    isWait: true,
+                    job: {
+                        promptA: promptA,
+                        promptB: promptB,
+                        mode: selectedMode,
+                        blobID: blobID,
+                    },
+                };
+
+                fetch(apiURL + "/v1/job", {
+                    credentials: "include",
+                    method: "POST",
+                    body: JSON.stringify(requestData),
+                    headers: {
+                        "Content-type": "application/json; charset=UTF-8",
+                    },
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        const decodedString = atob(data.res.binary);
+                        let replaced_str = decodedString.replace(/"/g, "");
+                        images.push(replaced_str);
+                        currentIndex = images.length - 1;
+                        displayImage();
+                    })
+                    .catch((error) => {
+                        console.error("Error:", error);
+                    })
+                    .finally(() => {
+                        loadingMessage.style.display = "none";
+                    });
+            }
+
+            function displayImage() {
+                const imgContainer = document.getElementById("imageContainer");
+                imgContainer.innerHTML = "";
+
+                const img = document.createElement("img");
+                img.src = images[currentIndex];
+
+                imgContainer.appendChild(img);
+            }
+
+            document
+                .getElementById("sendButton")
+                .addEventListener("click", sendPostRequest);
+
+            document
+                .getElementById("nextButton")
+                .addEventListener("click", function () {
+                    if (currentIndex < images.length - 1) {
+                        currentIndex++;
+                        displayImage();
+                    }
+                });
+
+            document
+                .getElementById("prevButton")
+                .addEventListener("click", function () {
+                    if (currentIndex > 0) {
+                        currentIndex--;
+                        displayImage();
+                    }
+                });
+        </script>
+    </body>
+</html>

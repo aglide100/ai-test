@@ -1,0 +1,4 @@
+diffusers
+python-dotenv
+torch
+websockets==12
